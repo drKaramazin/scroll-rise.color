@@ -1,224 +1,162 @@
 import { Motion, TimeFrame, Scene, Util } from "scroll-rise";
+import Color from "color";
+import { InternalLinearGradient, LinearGradient, InternalLinearColorStop } from "./linear-gradient";
 
-interface RGBA {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
+abstract class ColorMotion<InputT, T> extends Motion {
+
+  protected start: T;
+  protected end: T;
+
+  abstract makeStartStep(element: HTMLElement, start: T): void;
+  abstract makeEndStep(element: HTMLElement, end: T): void;
+  abstract makeUsualStep(element: HTMLElement, start: T, end: T, delta: number): void;
+  abstract castInputValue(value: InputT): T;
+
+  constructor(data: { start: InputT, end: InputT }) {
+    super();
+
+    this.start = this.castInputValue(data.start);
+    this.end = this.castInputValue(data.end);
+  }
+
+  calcValue(start: number, end: number, delta: number): number {
+    return Util.castToInt(start + (end - start) * delta);
+  }
+
+  calcRGBA(start: Color, end: Color, delta: number): Color {
+    const r = this.calcValue(start.red(), end.red(), delta);
+    const g = this.calcValue(start.green(), end.green(), delta);
+    const b = this.calcValue(start.blue(), end.blue(), delta);
+    const a = this.calcValue(start.alpha(), end.alpha(), delta);
+
+    return Color([r, g, b, a]);
+  }
+
+  make(
+    scrollPos: number,
+    frame: TimeFrame,
+    element: HTMLElement,
+    scene: Scene<any>,
+  ) {
+    if (element) {
+      const delta = scrollPos / frame.length();
+
+      if (delta < 0) {
+        this.makeStartStep(element, this.start);
+        return;
+      }
+      if (delta > 1) {
+        this.makeEndStep(element, this.end);
+        return;
+      }
+
+      this.makeUsualStep(element, this.start, this.end, delta);
+    }
+  }
+
 }
 
-interface LinearColorStop {
-  lengthPercentage: number;
-  color: RGBA;
+abstract class LinearGradientMotion extends ColorMotion<LinearGradient, InternalLinearGradient<Color>> {
+
+  abstract makeStep(element: HTMLElement, gradient: InternalLinearGradient<Color>): void;
+
+  constructor(data: { start: LinearGradient, end: LinearGradient }) {
+    super(data);
+
+    if (this.start.stopList.length !== this.end.stopList.length) {
+      throw new Error('Stop-list lengths of linear gradients are not equal in ' + this.motionName());
+    }
+  }
+
+  castInputValue(value: LinearGradient): InternalLinearGradient<Color> {
+    return {
+      angle: value.angle,
+      stopList: value.stopList.map(stop => ({
+        lengthPercentage: stop.lengthPercentage,
+        color: Color(stop.color),
+      })),
+    };
+  }
+
+  makeStartStep(element: HTMLElement, start: InternalLinearGradient<Color>) {
+    this.makeStep(element, this.start);
+  }
+
+  makeEndStep(element: HTMLElement, end: InternalLinearGradient<Color>) {
+    this.makeStep(element, this.end);
+  }
+
+  makeUsualStep(element: HTMLElement, start: InternalLinearGradient<Color>, end: InternalLinearGradient<Color>, delta: number) {
+    const stopList = this.start.stopList.map((start , index): InternalLinearColorStop<Color> => {
+      const lengthPercentage: number = this.calcValue(start.lengthPercentage, this.end.stopList[index].lengthPercentage, delta);
+
+      return {
+        lengthPercentage,
+        color: this.calcRGBA(start.color, this.end.stopList[index].color, delta),
+      };
+    });
+
+    this.makeStep(element, {
+      stopList,
+      angle: this.calcValue(this.start.angle, this.end.angle, delta),
+    });
+  }
+
 }
 
-interface LinearGradient {
-  angle: number;
-  stopList: LinearColorStop[];
-}
-
-export class BackgroundLinearGradientMotion extends Motion {
+export class BackgroundLinearGradientMotion extends LinearGradientMotion {
 
   name = 'BackgroundLinearGradientMotion';
 
-  start: LinearGradient;
-  end: LinearGradient;
-
-  constructor(data: { start: LinearGradient, end: LinearGradient }) {
-    super();
-
-    this.start = data.start;
-    this.end = data.end;
-
-    if (this.start.stopList.length !== this.end.stopList.length) {
-      throw new Error('Stop-list lengths of linear gradients are not equal in ' + this.name);
-    }
+  makeStopList(stopList: InternalLinearColorStop<Color>[]): string {
+    return stopList.map(stop => `${stop.color.hexa()} ${stop.lengthPercentage}%`).join(', ');
   }
 
-  makeRGBA(color: RGBA): string {
-    return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
-  }
-
-  makeStopList(stopList: LinearColorStop[]): string {
-    return stopList.map(stop => `${this.makeRGBA(stop.color)} ${stop.lengthPercentage}%`).join(', ');
-  }
-
-  makeBackgroundStyle(gradient: LinearGradient): string {
+  makeBackgroundStyle(gradient: InternalLinearGradient<Color>): string {
     return `linear-gradient(${gradient.angle}deg, ${this.makeStopList(gradient.stopList)})`;
   }
 
-  make(
-    scrollPos: number,
-    frame: TimeFrame,
-    element: HTMLElement,
-    scene: Scene<any>,
-  ) {
-    if (element) {
-      const d = scrollPos / frame.length();
-
-      if (d < 0) {
-        element.style.background = this.makeBackgroundStyle(this.start);
-        return;
-      }
-      if (d > 1) {
-        element.style.background = this.makeBackgroundStyle(this.end);
-        return;
-      }
-
-      const calcValue = (start: number, end: number) => Util.castToInt(start + (end - start) * d);
-
-      const stopList = this.start.stopList.map((item , index): LinearColorStop => {
-        const r = calcValue(item.color.r, this.end.stopList[index].color.r);
-        const g = calcValue(item.color.g, this.end.stopList[index].color.g);
-        const b = calcValue(item.color.b, this.end.stopList[index].color.b);
-        const a = calcValue(item.color.a, this.end.stopList[index].color.a);
-        const lengthPercentage: number = calcValue(item.lengthPercentage, this.end.stopList[index].lengthPercentage);
-
-        return {
-          lengthPercentage,
-          color: {
-            r,
-            g,
-            b,
-            a,
-          }
-        };
-      });
-
-      element.style.background = this.makeBackgroundStyle({
-        stopList,
-        angle: calcValue(this.start.angle, this.end.angle),
-      });
-    }
+  makeStep(element: HTMLElement, gradient: InternalLinearGradient<Color>) {
+    element.style.background = this.makeBackgroundStyle(gradient);
   }
 
 }
 
-export class SVGLinearGradientMotion extends Motion {
+export class SVGLinearGradientMotion extends LinearGradientMotion {
 
   name = 'SVGLinearGradientMotion';
 
-  start: LinearGradient;
-  end: LinearGradient;
-
-  constructor(data: { start: LinearGradient, end: LinearGradient }) {
-    super();
-
-    this.start = data.start;
-    this.end = data.end;
-
-    if (this.start.stopList.length !== this.end.stopList.length) {
-      throw new Error('Stop-list lengths of linear gradients are not equal in ' + this.name);
-    }
-  }
-
-  defineElement(gradient: LinearGradient, container: HTMLElement) {
-    container.setAttribute('gradientTransform', `rotate(${gradient.angle})`);
-    container.innerHTML = '';
+  makeStep(element: HTMLElement, gradient: InternalLinearGradient<Color>) {
+    element.setAttribute('gradientTransform', `rotate(${gradient.angle})`);
+    element.innerHTML = '';
     for (let stop of gradient.stopList) {
       const stopElement = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
       stopElement.setAttribute('offset', `${stop.lengthPercentage}%`);
-      stopElement.setAttribute('stop-color', `rgba(${stop.color.r}, ${stop.color.g}, ${stop.color.b}, ${stop.color.a})`);
-      container.append(stopElement);
-    }
-  }
-
-  make(
-    scrollPos: number,
-    frame: TimeFrame,
-    element: HTMLElement,
-    scene: Scene<any>,
-  ) {
-    if (element) {
-      const d = scrollPos / frame.length();
-
-      if (d < 0) {
-        this.defineElement(this.start, element);
-        return;
-      }
-      if (d > 1) {
-        this.defineElement(this.end, element);
-        return;
-      }
-
-      const calcValue = (start: number, end: number) => Util.castToInt(start + (end - start) * d);
-
-      const stopList = this.start.stopList.map((item , index): LinearColorStop => {
-        const r = calcValue(item.color.r, this.end.stopList[index].color.r);
-        const g = calcValue(item.color.g, this.end.stopList[index].color.g);
-        const b = calcValue(item.color.b, this.end.stopList[index].color.b);
-        const a = calcValue(item.color.a, this.end.stopList[index].color.a);
-        const lengthPercentage: number = calcValue(item.lengthPercentage, this.end.stopList[index].lengthPercentage);
-
-        return {
-          lengthPercentage,
-          color: {
-            r,
-            g,
-            b,
-            a,
-          }
-        };
-      });
-
-      this.defineElement({
-        stopList,
-        angle: calcValue(this.start.angle, this.end.angle),
-      }, element);
+      stopElement.setAttribute('stop-color', stop.color.hexa());
+      element.append(stopElement);
     }
   }
 
 }
 
-export class FillMotion extends Motion {
+export class FillMotion extends ColorMotion<string, Color> {
 
   name = 'FillMotion';
 
-  start: RGBA;
-  end: RGBA;
-
-  constructor(data: { start: RGBA, end: RGBA }) {
-    super();
-
-    this.start = data.start;
-    this.end = data.end;
+  castInputValue(value: string): Color {
+    return Color(value);
   }
 
-  calcRGBA(start: RGBA, end: RGBA, delta: number): RGBA {
-    const calcValue = (start: number, end: number) => Util.castToInt(start + (end - start) * delta);
-
-    const r = calcValue(start.r, end.r);
-    const g = calcValue(start.g, end.g);
-    const b = calcValue(start.b, end.b);
-    const a = calcValue(start.a, end.a);
-
-    return { r, g, b, a };
+  makeStartStep(element: HTMLElement, start: Color) {
+    element.style.fill = this.start.hexa();
   }
 
-  makeRGBA(color: RGBA): string {
-    return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
+  makeEndStep(element: HTMLElement, end: Color) {
+    element.style.fill = this.end.hexa();
   }
 
-  make(
-    scrollPos: number,
-    frame: TimeFrame,
-    element: HTMLElement,
-    scene: Scene<any>,
-  ) {
-    if (element) {
-      const d = scrollPos / frame.length();
-
-      if (d < 0) {
-        element.style.fill = this.makeRGBA(this.start);
-        return;
-      }
-      if (d > 1) {
-        element.style.fill = this.makeRGBA(this.end);
-        return;
-      }
-
-      element.style.fill = this.makeRGBA(this.calcRGBA(this.start, this.end, d));
-    }
+  makeUsualStep(element: HTMLElement, start: Color, end: Color, delta: number) {
+    element.style.fill = this.calcRGBA(this.start, this.end, delta).hexa();
   }
 
 }

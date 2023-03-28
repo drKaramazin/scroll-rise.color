@@ -27,6 +27,7 @@
   "author": "Nikolay Grishkin",
   "license": "MIT",
   "devDependencies": {
+    "@types/color": "^3.0.3",
     "ts-loader": "^9.2.7",
     "typescript": "^4.8.4",
     "webpack": "^5.75.0",

@@ -10,6 +10,7 @@
     "/lib/**/*"
   ],
   "scripts": {
+    "start": "npm run watch",
     "test": "echo \"Error: no test specified yet\" && exit 1",
     "clear:lib": "rm -rf ./lib",
     "build": "npm run clear:lib && webpack --mode production",

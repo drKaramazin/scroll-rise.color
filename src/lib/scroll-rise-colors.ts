@@ -1,6 +1,7 @@
-import { Motion, TimeFrame, Scene, Util } from "scroll-rise";
+import { Motion, Util } from "scroll-rise";
 import Color from "color";
 import { InternalLinearGradient, LinearGradient, InternalLinearColorStop } from "./linear-gradient";
+import { MotionParams } from 'scroll-rise';
 
 abstract class ColorMotion<InputT, T> extends Motion {
 
@@ -33,24 +34,21 @@ abstract class ColorMotion<InputT, T> extends Motion {
   }
 
   make(
-    scrollPos: number,
-    frame: TimeFrame,
-    element: HTMLElement,
-    scene: Scene<any>,
+    params: MotionParams,
   ) {
-    if (element) {
-      const delta = scrollPos / frame.length();
-
-      if (delta < 0) {
-        this.makeStartStep(element, this.start);
+    if (params.element) {
+      if (params.delta < 0) {
+        this.makeStartStep(params.element, this.start);
         return;
       }
-      if (delta > 1) {
-        this.makeEndStep(element, this.end);
+      if (params.delta > 1) {
+        this.makeEndStep(params.element, this.end);
         return;
       }
 
-      this.makeUsualStep(element, this.start, this.end, delta);
+      this.makeUsualStep(params.element, this.start, this.end, params.delta);
+    } else {
+      throw new Error('There is no an element');
     }
   }
 

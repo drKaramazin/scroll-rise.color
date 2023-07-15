@@ -1,15 +1,15 @@
-import { Motion, TimeFrame, Scene, Util } from "scroll-rise";
+import { Util, MotionParams, FramedMotion } from "scroll-rise";
 import Color from "color";
 import { InternalLinearGradient, LinearGradient, InternalLinearColorStop } from "./linear-gradient";
 
-abstract class ColorMotion<InputT, T> extends Motion {
+abstract class ColorMotion<InputT, T> extends FramedMotion {
 
   protected start: T;
   protected end: T;
 
-  abstract makeStartStep(element: HTMLElement, start: T): void;
-  abstract makeEndStep(element: HTMLElement, end: T): void;
-  abstract makeUsualStep(element: HTMLElement, start: T, end: T, delta: number): void;
+  abstract makeStartStep(params: MotionParams): void;
+  abstract makeEndStep(params: MotionParams): void;
+  abstract makeUsualStep(params: MotionParams): void;
   abstract castInputValue(value: InputT): T;
 
   constructor(data: { start: InputT, end: InputT }) {
@@ -30,28 +30,6 @@ abstract class ColorMotion<InputT, T> extends Motion {
     const a = this.calcValue(start.alpha(), end.alpha(), delta);
 
     return Color([r, g, b, a]);
-  }
-
-  make(
-    scrollPos: number,
-    frame: TimeFrame,
-    element: HTMLElement,
-    scene: Scene<any>,
-  ) {
-    if (element) {
-      const delta = scrollPos / frame.length();
-
-      if (delta < 0) {
-        this.makeStartStep(element, this.start);
-        return;
-      }
-      if (delta > 1) {
-        this.makeEndStep(element, this.end);
-        return;
-      }
-
-      this.makeUsualStep(element, this.start, this.end, delta);
-    }
   }
 
 }
@@ -78,27 +56,27 @@ abstract class LinearGradientMotion extends ColorMotion<LinearGradient, Internal
     };
   }
 
-  makeStartStep(element: HTMLElement, start: InternalLinearGradient<Color>) {
-    this.makeStep(element, this.start);
+  makeStartStep(params: MotionParams) {
+    this.makeStep(params.element, this.start);
   }
 
-  makeEndStep(element: HTMLElement, end: InternalLinearGradient<Color>) {
-    this.makeStep(element, this.end);
+  makeEndStep(params: MotionParams) {
+    this.makeStep(params.element, this.end);
   }
 
-  makeUsualStep(element: HTMLElement, start: InternalLinearGradient<Color>, end: InternalLinearGradient<Color>, delta: number) {
+  makeUsualStep(params: MotionParams) {
     const stopList = this.start.stopList.map((start , index): InternalLinearColorStop<Color> => {
-      const lengthPercentage: number = this.calcValue(start.lengthPercentage, this.end.stopList[index].lengthPercentage, delta);
+      const lengthPercentage: number = this.calcValue(start.lengthPercentage, this.end.stopList[index].lengthPercentage, params.delta);
 
       return {
         lengthPercentage,
-        color: this.calcRGBA(start.color, this.end.stopList[index].color, delta),
+        color: this.calcRGBA(start.color, this.end.stopList[index].color, params.delta),
       };
     });
 
-    this.makeStep(element, {
+    this.makeStep(params.element, {
       stopList,
-      angle: this.calcValue(this.start.angle, this.end.angle, delta),
+      angle: this.calcValue(this.start.angle, this.end.angle, params.delta),
     });
   }
 
@@ -147,16 +125,16 @@ export class FillMotion extends ColorMotion<string, Color> {
     return Color(value);
   }
 
-  makeStartStep(element: HTMLElement, start: Color) {
-    element.style.fill = this.start.hexa();
+  makeStartStep(params: MotionParams) {
+    params.element.style.fill = this.start.hexa();
   }
 
-  makeEndStep(element: HTMLElement, end: Color) {
-    element.style.fill = this.end.hexa();
+  makeEndStep(params: MotionParams) {
+    params.element.style.fill = this.end.hexa();
   }
 
-  makeUsualStep(element: HTMLElement, start: Color, end: Color, delta: number) {
-    element.style.fill = this.calcRGBA(this.start, this.end, delta).hexa();
+  makeUsualStep(params: MotionParams) {
+    params.element.style.fill = this.calcRGBA(this.start, this.end, params.delta).hexa();
   }
 
 }

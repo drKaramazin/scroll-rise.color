@@ -1,6 +1,6 @@
 {
   "name": "scroll-rise.colors",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": false,
   "description": "Color primitives for your scroll animation, such as linear-gradients.",
   "main": "lib/index.umd.js",
@@ -37,6 +37,6 @@
   },
   "dependencies": {
     "color": "~4.2.3",
-    "scroll-rise": "~1.6.1"
+    "scroll-rise": "~1.7.0"
   }
 }

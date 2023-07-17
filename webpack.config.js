@@ -7,7 +7,12 @@ const esConfig = {
   devtool: 'source-map',
   module: {
     rules: [{
-      use: 'ts-loader',
+      use: [{
+        loader: 'ts-loader',
+        options: {
+          configFile: 'tsconfig.json',
+        },
+      }],
       test: /\.ts?$/,
       exclude: /node_modules/,
     }],
@@ -35,17 +40,4 @@ const esConfig = {
   },
 };
 
-const umdConfig = {
-  ...esConfig,
-  output: {
-    ...esConfig.output,
-    filename: 'index.umd.js',
-    library: {
-      name: 'scroll-rise',
-      type: 'umd',
-    },
-    globalObject: 'this',
-  },
-};
-
-module.exports = [esConfig, umdConfig];
+module.exports = esConfig;

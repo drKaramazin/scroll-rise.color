@@ -1,8 +1,8 @@
 {
   "name": "scroll-rise.colors",
-  "version": "0.0.2",
+  "version": "0.0.2-deprecation",
   "private": false,
-  "description": "Color primitives for your scroll animation, such as linear-gradients.",
+  "description": "[DEPRECATED] Color primitives for your scroll animation, such as linear-gradients.",
   "main": "lib/index.umd.js",
   "module": "lib/index.es.js",
   "types": "lib/index.d.ts",
